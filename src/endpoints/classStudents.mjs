@@ -1,0 +1,314 @@
+import { Router } from "express";
+import db from "../utils/database.mjs";
+import { sendJsonResponse } from "../utils/utilFunctions.mjs";
+import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs";
+
+const router = Router();
+
+// Adaugă un student la o clasă (doar admin)
+router.post('/addClassStudent/:classId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const { classId } = req.params;
+        const { student_id } = req.body;
+        const userId = req.user.id;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const [id] = await db('class_students').insert({
+            student_id, class_id: classId, admin_id: userId,
+        });
+
+        const classStudent = await db('class_students').where({ id }).first();
+        return sendJsonResponse(res, true, 201, "Elevul a fost adăugat cu succes!", { classStudent });
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, "Eroare la adăugarea elevului!", { details: error.message });
+    }
+});
+
+// // Actualizează un elev
+// router.put('/updateClassStudent/:classStudentId', userAuthMiddleware, async (req, res) => {
+
+//     try {
+
+//         const { classStudentId } = req.params;
+//         const { student_id } = req.body;
+
+//         console.log('classStudentId ', classStudentId);
+//         console.log('student_id ', student_id);
+
+//         const userId = req.user.id;
+
+//         const userRights = await db('user_rights')
+//             .join('rights', 'user_rights.right_id', 'rights.id')
+//             .where('rights.right_code', 3)
+//             .where('user_rights.user_id', userId)
+//             .first();
+
+//         if (!userRights) {
+//             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+//         }
+
+//         const classStudent = await db('class_students').where({ id: classStudentId }).first();
+//         if (!classStudent) return sendJsonResponse(res, false, 404, "Elevul nu există!", []);
+
+//         await db('class_students').where({ id: classStudentId }).update({
+//             student_id: student_id || classStudent.student_id
+//         });
+//         const updated = await db('class_students').where({ id: classStudentId }).first();
+//         return sendJsonResponse(res, true, 200, "Elevul a fost actualizat cu succes!", { classStudent: updated });
+//     } catch (error) {
+//         return sendJsonResponse(res, false, 500, "Eroare la actualizarea elevului!", { details: error.message });
+//     }
+// });
+
+
+// Șterge un elev
+router.delete('/deleteClassStudent/:studentId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const { studentId } = req.params;
+
+        const userId = req.user.id;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        console.log('studentId', studentId);
+
+        const classStudent = await db('class_students').where({ student_id: studentId }).first();
+        if (!classStudent) return sendJsonResponse(res, false, 404, "Elevul nu există!", []);
+        await db('class_students').where({ student_id: studentId }).del();
+        return sendJsonResponse(res, true, 200, "Elevul a fost șters cu succes!", []);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, "Eroare la ștergerea elevului!", { details: error.message });
+    }
+});
+
+// Obține un elev după id
+// router.get('/getClassStudent/:classStudentId', userAuthMiddleware, async (req, res) => {
+
+//     try {
+
+//         const { classStudentId } = req.params;
+
+//         const userId = req.user.id;
+
+//         const userRights = await db('user_rights')
+//             .join('rights', 'user_rights.right_id', 'rights.id')
+//             .where('rights.right_code', 3)
+//             .where('user_rights.user_id', userId)
+//             .first();
+
+//         if (!userRights) {
+//             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+//         }
+
+//         const classStudent = await db('class_students')
+//             .join('classes', 'class_students.class_id', 'classes.id')
+//             .where('class_students.id', classStudentId)
+//             .select(
+//                 'class_students.id',
+//                 'class_students.student_id',
+//                 'class_students.class_id',
+//                 'classes.name'
+//             )
+//             .first();
+//         if (!classStudent) {
+//             return sendJsonResponse(res, false, 404, 'Elevul nu există!', []);
+//         }
+//         return sendJsonResponse(res, true, 200, 'Elevul a fost găsit!', classStudent);
+//     } catch (error) {
+//         return sendJsonResponse(res, false, 500, 'Eroare la preluarea elevului!', { details: error.message });
+//     }
+// });
+
+
+
+router.get('/getClassStudents', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const userId = req.user.id;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const classStudents = await db('classes')
+            .join('users', 'classes.teacher_id', 'users.id')
+            .join('subjects', 'classes.subject_id', 'subjects.id')
+            .select(
+                'classes.id',
+                'classes.name as class_name',
+                'classes.created_at',
+                'users.name as teacher_name',
+                'subjects.subject as subject_name',
+            )
+            .groupBy('classes.id');
+
+        console.log('classStudents', classStudents);
+
+
+
+        const results = await Promise.all(classStudents.map(async classStudent => {
+            // Get order items for this order
+            const students = await db('users')
+                .join('class_students', 'users.id', 'class_students.student_id')
+                .join('classes', 'class_students.class_id', 'classes.id')
+                .where('class_students.class_id', classStudent.id)
+                .select(
+                    'class_students.id',
+                    'users.name',
+                    'users.email',
+                    'users.phone',
+                );
+            return {
+                ...classStudent,
+                students: students
+            };
+        }));
+
+
+
+        if (!results) {
+            return sendJsonResponse(res, false, 404, 'Elevii nu există!', []);
+        }
+        return sendJsonResponse(res, true, 200, 'Elevii au fost găsiți!', results);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, 'Eroare la preluarea elevilor!', { details: error.message });
+    }
+});
+
+router.get('/getClassStudentsByTeacherId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const userId = req.user.id;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 1)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const classStudents = await db('classes')
+            .join('users', 'classes.teacher_id', 'users.id')
+            .join('subjects', 'classes.subject_id', 'subjects.id')
+            .where('classes.teacher_id', userId)
+            .select(
+                'classes.id',
+                'classes.name as class_name',
+                'classes.created_at',
+                'users.name as teacher_name',
+                'subjects.subject as subject_name',
+
+            )
+            .groupBy('classes.id');
+
+
+
+        const results = await Promise.all(classStudents.map(async classStudent => {
+            // Get order items for this order
+            const students = await db('users')
+                .join('class_students', 'users.id', 'class_students.student_id')
+                .join('classes', 'class_students.class_id', 'classes.id')
+                .where('class_students.class_id', classStudent.id)
+                .select(
+                    'class_students.id',
+                    'class_students.student_id',
+                    'users.name',
+                    'users.email',
+                    'users.phone',
+                );
+            return {
+                ...classStudent,
+                students: students
+            };
+        }));
+
+
+
+        if (!results) {
+            return sendJsonResponse(res, false, 404, 'Elevii nu există!', []);
+        }
+        return sendJsonResponse(res, true, 200, 'Elevii au fost găsiți!', results);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, 'Eroare la preluarea elevilor!', { details: error.message });
+    }
+});
+
+
+router.get('/getClassStudentsByClassId/:classId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const userId = req.user.id;
+
+        const { classId } = req.params;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const classStudents = await db('class_students')
+            .join('classes', 'class_students.class_id', 'classes.id')
+            .join('users', 'class_students.student_id', 'users.id')
+            .where('class_students.class_id', classId)
+            .select(
+                'class_students.student_id as id',
+                'class_students.class_id',
+                'classes.name as class_name',
+                'classes.created_at',
+                'users.name',
+                'users.email',
+                'users.phone',
+            )
+
+        console.log('classStudents', classStudents);
+
+
+        if (!classStudents) {
+            return sendJsonResponse(res, false, 404, 'Elevii nu există!', []);
+        }
+        return sendJsonResponse(res, true, 200, 'Elevii au fost găsiți!', classStudents);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, 'Eroare la preluarea elevilor!', { details: error.message });
+    }
+});
+
+
+export default router; 
