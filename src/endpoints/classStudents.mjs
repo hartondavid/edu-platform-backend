@@ -14,6 +14,10 @@ router.post('/addClassStudent/:classId', userAuthMiddleware, async (req, res) =>
         const { student_id } = req.body;
         const userId = req.user.id;
 
+        if (!classId || !student_id) {
+            return sendJsonResponse(res, false, 400, "Clasa si elevul sunt obligatorii!", []);
+        }
+
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
@@ -34,42 +38,6 @@ router.post('/addClassStudent/:classId', userAuthMiddleware, async (req, res) =>
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea elevului!", { details: error.message });
     }
 });
-
-// // Actualizează un elev
-// router.put('/updateClassStudent/:classStudentId', userAuthMiddleware, async (req, res) => {
-
-//     try {
-
-//         const { classStudentId } = req.params;
-//         const { student_id } = req.body;
-
-//         console.log('classStudentId ', classStudentId);
-//         console.log('student_id ', student_id);
-
-//         const userId = req.user.id;
-
-//         const userRights = await db('user_rights')
-//             .join('rights', 'user_rights.right_id', 'rights.id')
-//             .where('rights.right_code', 3)
-//             .where('user_rights.user_id', userId)
-//             .first();
-
-//         if (!userRights) {
-//             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
-//         }
-
-//         const classStudent = await db('class_students').where({ id: classStudentId }).first();
-//         if (!classStudent) return sendJsonResponse(res, false, 404, "Elevul nu există!", []);
-
-//         await db('class_students').where({ id: classStudentId }).update({
-//             student_id: student_id || classStudent.student_id
-//         });
-//         const updated = await db('class_students').where({ id: classStudentId }).first();
-//         return sendJsonResponse(res, true, 200, "Elevul a fost actualizat cu succes!", { classStudent: updated });
-//     } catch (error) {
-//         return sendJsonResponse(res, false, 500, "Eroare la actualizarea elevului!", { details: error.message });
-//     }
-// });
 
 
 // Șterge un elev
@@ -102,45 +70,6 @@ router.delete('/deleteClassStudent/:studentId', userAuthMiddleware, async (req, 
     }
 });
 
-// Obține un elev după id
-// router.get('/getClassStudent/:classStudentId', userAuthMiddleware, async (req, res) => {
-
-//     try {
-
-//         const { classStudentId } = req.params;
-
-//         const userId = req.user.id;
-
-//         const userRights = await db('user_rights')
-//             .join('rights', 'user_rights.right_id', 'rights.id')
-//             .where('rights.right_code', 3)
-//             .where('user_rights.user_id', userId)
-//             .first();
-
-//         if (!userRights) {
-//             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
-//         }
-
-//         const classStudent = await db('class_students')
-//             .join('classes', 'class_students.class_id', 'classes.id')
-//             .where('class_students.id', classStudentId)
-//             .select(
-//                 'class_students.id',
-//                 'class_students.student_id',
-//                 'class_students.class_id',
-//                 'classes.name'
-//             )
-//             .first();
-//         if (!classStudent) {
-//             return sendJsonResponse(res, false, 404, 'Elevul nu există!', []);
-//         }
-//         return sendJsonResponse(res, true, 200, 'Elevul a fost găsit!', classStudent);
-//     } catch (error) {
-//         return sendJsonResponse(res, false, 500, 'Eroare la preluarea elevului!', { details: error.message });
-//     }
-// });
-
-
 
 router.get('/getClassStudents', userAuthMiddleware, async (req, res) => {
 
@@ -167,6 +96,7 @@ router.get('/getClassStudents', userAuthMiddleware, async (req, res) => {
                 'classes.created_at',
                 'users.name as teacher_name',
                 'subjects.subject as subject_name',
+                'users.photo',
             )
             .groupBy('classes.id');
 
@@ -185,6 +115,8 @@ router.get('/getClassStudents', userAuthMiddleware, async (req, res) => {
                     'users.name',
                     'users.email',
                     'users.phone',
+                    'users.photo',
+                    'users.created_at',
                 );
             return {
                 ...classStudent,
@@ -229,6 +161,7 @@ router.get('/getClassStudentsByTeacherId', userAuthMiddleware, async (req, res) 
                 'classes.created_at',
                 'users.name as teacher_name',
                 'subjects.subject as subject_name',
+                'users.photo',
 
             )
             .groupBy('classes.id');
@@ -247,6 +180,7 @@ router.get('/getClassStudentsByTeacherId', userAuthMiddleware, async (req, res) 
                     'users.name',
                     'users.email',
                     'users.phone',
+                    'users.photo',
                 );
             return {
                 ...classStudent,

@@ -4,6 +4,8 @@ exports.up = function (knex) {
         table.increments('id').primary();
         table.string('assignment', 255).notNullable();
         table.text('file_path').nullable();
+        table.integer('grade', 255).nullable();
+
         table.integer('student_id').unsigned().notNullable()
             .references('id').inTable('users').onDelete('CASCADE');
         table.integer('subject_id').unsigned().notNullable()

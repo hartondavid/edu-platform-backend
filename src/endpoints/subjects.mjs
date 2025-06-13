@@ -13,6 +13,10 @@ router.post('/addSubject', userAuthMiddleware, async (req, res) => {
         const { subject } = req.body;
         const userId = req.user.id;
 
+        if (!subject) {
+            return sendJsonResponse(res, false, 400, "Subiectul este obligatoriu!", []);
+        }
+
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)

@@ -121,10 +121,6 @@ router.get('/searchStudent', userAuthMiddleware, async (req, res) => {
     }
 })
 
-
-
-
-
 export default router;
 
 

@@ -42,6 +42,8 @@ router.put('/updateClass/:classId', userAuthMiddleware, async (req, res) => {
         const { name, subject_id, teacher_id } = req.body;
         const userId = req.user.id;
 
+
+
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
