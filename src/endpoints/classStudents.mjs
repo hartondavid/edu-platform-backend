@@ -5,7 +5,7 @@ import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs"
 
 const router = Router();
 
-// Adaugă un student la o clasă (doar admin)
+// Adaugă un student la o clasă
 router.post('/addClassStudent/:classId', userAuthMiddleware, async (req, res) => {
 
     try {
@@ -87,31 +87,27 @@ router.get('/getClassStudents', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const classStudents = await db('classes')
-            .join('users', 'classes.teacher_id', 'users.id')
-            .join('subjects', 'classes.subject_id', 'subjects.id')
+        const classes = await db('classes')
             .select(
                 'classes.id',
                 'classes.name as class_name',
                 'classes.created_at',
-                'users.name as teacher_name',
-                'subjects.subject as subject_name',
-                'users.photo',
+
             )
             .groupBy('classes.id');
 
-        console.log('classStudents', classStudents);
+        console.log('classes', classes);
 
 
 
-        const results = await Promise.all(classStudents.map(async classStudent => {
+        const results = await Promise.all(classes.map(async classStudent => {
             // Get order items for this order
             const students = await db('users')
                 .join('class_students', 'users.id', 'class_students.student_id')
                 .join('classes', 'class_students.class_id', 'classes.id')
                 .where('class_students.class_id', classStudent.id)
                 .select(
-                    'class_students.id',
+                    'users.id',
                     'users.name',
                     'users.email',
                     'users.phone',
@@ -152,16 +148,10 @@ router.get('/getClassStudentsByTeacherId', userAuthMiddleware, async (req, res) 
         }
 
         const classStudents = await db('classes')
-            .join('users', 'classes.teacher_id', 'users.id')
-            .join('subjects', 'classes.subject_id', 'subjects.id')
-            .where('classes.teacher_id', userId)
             .select(
                 'classes.id',
                 'classes.name as class_name',
                 'classes.created_at',
-                'users.name as teacher_name',
-                'subjects.subject as subject_name',
-                'users.photo',
 
             )
             .groupBy('classes.id');

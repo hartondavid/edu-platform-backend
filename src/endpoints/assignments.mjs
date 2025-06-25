@@ -14,17 +14,17 @@ const upload = createMulter('public/uploads/assignments', [
 const router = Router();
 
 
-// Adaugă o rețetă nouă (doar admin)
+// Adaugă tema
 router.post('/addAssignment', userAuthMiddleware, upload.fields([{ name: 'file' }]), async (req, res) => {
 
     try {
 
 
         const userId = req.user?.id;
-        const { student_id, subject_id, assignment } = req.body;
+        const { class_id, subject_id, assignment } = req.body;
 
-        if (!student_id || !subject_id) {
-            return sendJsonResponse(res, false, 400, "Elevul și materia nu există!", []);
+        if (!class_id || !subject_id || !assignment) {
+            return sendJsonResponse(res, false, 400, "Clasa, materia și tema nu există!", []);
         }
 
 
@@ -45,15 +45,20 @@ router.post('/addAssignment', userAuthMiddleware, upload.fields([{ name: 'file' 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
+        const students = await db('users')
+            .join('class_students', 'users.id', 'class_students.student_id')
+            .where('class_students.class_id', class_id)
+            .select('users.id');
 
-        const [id] = await db('assignments').insert({
-            file_path: filePathForImagePath, student_id: student_id,
-            subject_id: subject_id, teacher_id: userId, assignment
-        });
+        for (const student of students) {
+            await db('assignments').insert({
+                requirement_file_path: filePathForImagePath, student_id: student.id,
+                subject_id: subject_id, teacher_id: userId, assignment
+            });
+        }
 
-
-        const foundAssignment = await db('assignments').where({ id }).first();
-        return sendJsonResponse(res, true, 201, "Tema a fost adăugată cu succes!", { foundAssignment });
+        // const foundAssignment = await db('assignments').where({ id }).first();
+        return sendJsonResponse(res, true, 201, "Tema a fost adăugată cu succes!", {});
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea temei!", { details: error.message });
     }
@@ -91,10 +96,12 @@ router.delete('/deleteAssignment/:assignmentId', userAuthMiddleware, async (req,
     }
 });
 
-router.get('/getAssignmentsByStudentIdByTeacherId', userAuthMiddleware, async (req, res) => {
+router.get('/getAssignmentsByStudentIdByClassId/:classId', userAuthMiddleware, async (req, res) => {
     try {
 
         const userId = req.user?.id;
+
+        const { classId } = req.params;
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -109,7 +116,9 @@ router.get('/getAssignmentsByStudentIdByTeacherId', userAuthMiddleware, async (r
         const students = await db('users')
             .join('class_students', 'users.id', 'class_students.student_id')
             .join('classes', 'class_students.class_id', 'classes.id')
-            .where('classes.teacher_id', userId)
+            .join('class_teachers', 'classes.id', 'class_teachers.class_id')
+            .where('class_teachers.teacher_id', userId)
+            .where('classes.id', classId)
             .select(
                 'users.id',
                 'users.name',
@@ -133,7 +142,8 @@ router.get('/getAssignmentsByStudentIdByTeacherId', userAuthMiddleware, async (r
                 .select(
                     'assignments.id',
                     'assignments.student_id',
-                    'assignments.file_path',
+                    'assignments.requirement_file_path',
+                    'assignments.solution_file_path',
                     'subjects.subject',
                     'assignments.created_at',
                     'assignments.assignment'
@@ -191,7 +201,8 @@ router.get('/getAssignmentsBySubjectIdByStudentId', userAuthMiddleware, async (r
                 .select(
                     'assignments.id',
                     'assignments.student_id',
-                    'assignments.file_path',
+                    'assignments.requirement_file_path',
+                    'assignments.solution_file_path',
                     'subjects.subject',
                     'assignments.created_at',
                     'assignments.assignment'
@@ -211,6 +222,85 @@ router.get('/getAssignmentsBySubjectIdByStudentId', userAuthMiddleware, async (r
         return sendJsonResponse(res, false, 500, 'Eroare la preluarea temelor!', { details: error.message });
     }
 });
+
+router.post('/addAssignmentSolution', userAuthMiddleware, upload.fields([{ name: 'file' }]), async (req, res) => {
+
+    try {
+
+
+        const userId = req.user?.id;
+        const { assignment_id } = req.body;
+
+        console.log(assignment_id);
+
+        if (!assignment_id) {
+            return sendJsonResponse(res, false, 400, "Tema și soluția nu există!", []);
+        }
+
+
+        if (!req.files || !req.files['file']) {
+            return sendJsonResponse(res, false, 400, "File is required", null);
+        }
+
+        let filePathForImagePath = req.files['file'][0].path; // Get the full file path
+        filePathForImagePath = filePathForImagePath.replace(/^public[\\/]/, '');
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 2)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+
+        await db('assignments').where({ id: assignment_id }).update({
+            solution_file_path: filePathForImagePath,
+        });
+
+
+        // const foundAssignment = await db('assignments').where({ id }).first();
+        return sendJsonResponse(res, true, 201, "Tema a fost adăugată cu succes!", {});
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, "Eroare la adăugarea temei!", { details: error.message });
+    }
+});
+
+router.delete('/deleteAssignmentSolution/:assignmentId', userAuthMiddleware, async (req, res) => {
+
+    try {
+        const { assignmentId } = req.params;
+        const userId = req.user?.id;
+
+        if (!assignmentId) {
+            return sendJsonResponse(res, false, 400, "Tema nu există!", []);
+        }
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 2)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const assignment = await db('assignments')
+            .where({ id: assignmentId }).first();
+        if (!assignment) return sendJsonResponse(res, false, 404, "Tema nu există!", []);
+        await db('assignments').where({ id: assignmentId }).update({
+            solution_file_path: null
+        });
+        return sendJsonResponse(res, true, 200, "Soluția temei a fost ștearsă cu succes!", []);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, "Eroare la ștergerea soluției temei!", { details: error.message });
+    }
+});
+
+
 
 
 export default router;

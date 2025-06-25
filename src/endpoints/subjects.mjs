@@ -5,7 +5,7 @@ import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs"
 
 const router = Router();
 
-// Adaugă un subiect nou (doar admin)
+// Adaugă un subiect nou
 router.post('/addSubject', userAuthMiddleware, async (req, res) => {
 
     try {
@@ -27,6 +27,11 @@ router.post('/addSubject', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
+        const subjectExists = await db('subjects').where({ subject }).first();
+        if (subjectExists) {
+            return sendJsonResponse(res, false, 400, "Subiectul există deja!", []);
+        }
+
         const [id] = await db('subjects').insert({
             subject, admin_id: userId,
         });
@@ -46,8 +51,9 @@ router.put('/updateSubject/:subjectId', userAuthMiddleware, async (req, res) => 
         const { subjectId } = req.params;
         const { subject } = req.body;
 
-        console.log('subjectId ', subjectId);
-        console.log('subject ', subject);
+        if (!subjectId || !subject) {
+            return sendJsonResponse(res, false, 400, "Id-ul subiectului si subiectul sunt obligatorii!", []);
+        }
 
         const userId = req.user.id;
 
@@ -163,11 +169,29 @@ router.get('/getSubjects', userAuthMiddleware, async (req, res) => {
             'subjects.created_at',
         );
 
+        const results = await Promise.all(subjects.map(async subject => {
+            // Get order items for this order
+            const teachers = await db('subject_teachers')
+                .join('users', 'subject_teachers.teacher_id', 'users.id')
+                .where('subject_teachers.subject_id', subject.id)
+                .select(
+                    'users.id',
+                    'users.name',
+                    'users.email',
+                    'users.phone',
+                    'users.photo',
+                );
+            return {
+                ...subject,
+                teachers: teachers
+            };
+        }));
 
-        if (!subjects) {
+
+        if (!results) {
             return sendJsonResponse(res, false, 404, 'Subiectul nu există!', []);
         }
-        return sendJsonResponse(res, true, 200, 'Subiectele au fost găsite!', subjects);
+        return sendJsonResponse(res, true, 200, 'Subiectele au fost găsite!', results);
     } catch (error) {
         return sendJsonResponse(res, false, 500, 'Eroare la preluarea subiectelor!', { details: error.message });
     }
@@ -242,6 +266,147 @@ router.get('/searchSubject', userAuthMiddleware, async (req, res) => {
         return sendJsonResponse(res, false, 500, 'An error occurred while retrieving subjects', null);
     }
 })
+
+router.post('/addSubjectTeacher/:subjectId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const { subjectId } = req.params;
+        const { teacher_id } = req.body;
+        const userId = req.user.id;
+
+        if (!subjectId || !teacher_id) {
+            return sendJsonResponse(res, false, 400, "Subiectul si profesorul sunt obligatorii!", []);
+        }
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const [id] = await db('subject_teachers').insert({
+            subject_id: subjectId, teacher_id: teacher_id,
+        });
+
+        const subjectTeacher = await db('subject_teachers').where({ id }).first();
+        return sendJsonResponse(res, true, 201, "Profesorul a fost adăugat cu succes!", { subjectTeacher });
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, "Eroare la adăugarea profesorului!", { details: error.message });
+    }
+});
+
+router.delete('/deleteSubjectTeacher/:subjectTeacherId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const { subjectTeacherId } = req.params;
+
+        const userId = req.user.id;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        console.log('subjectTeacherId', subjectTeacherId);
+
+        const subjectTeacher = await db('subject_teachers').where({ id: subjectTeacherId }).first();
+        if (!subjectTeacher) return sendJsonResponse(res, false, 404, "Profesorul nu există!", []);
+        await db('subject_teachers').where({ id: subjectTeacherId }).del();
+        return sendJsonResponse(res, true, 200, "Profesorul a fost șters cu succes!", []);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, "Eroare la ștergerea profesorului!", { details: error.message });
+    }
+});
+
+
+router.get('/getSubjectTeachersBySubjectId/:subjectId', userAuthMiddleware, async (req, res) => {
+
+    try {
+
+        const userId = req.user.id;
+
+        const { subjectId } = req.params;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 3)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+        console.log('subjectId', subjectId);
+
+        const subjectTeachers = await db('subject_teachers')
+            .join('users', 'subject_teachers.teacher_id', 'users.id')
+            .where('subject_teachers.subject_id', subjectId)
+            .select(
+                'subject_teachers.teacher_id as id',
+                'subject_teachers.subject_id',
+                'users.name',
+                'users.email',
+                'users.phone',
+            )
+
+        console.log('subjectTeachers', subjectTeachers);
+
+
+        if (!subjectTeachers) {
+            return sendJsonResponse(res, false, 404, 'Profesorii nu există!', []);
+        }
+        return sendJsonResponse(res, true, 200, 'Profesorii au fost găsiți!', subjectTeachers);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, 'Eroare la preluarea profesorilor!', { details: error.message });
+    }
+});
+
+
+router.get('/getSubjectsByTeacherId', userAuthMiddleware, async (req, res) => {
+
+    try {
+        const userId = req.user.id;
+
+        const userRights = await db('user_rights')
+            .join('rights', 'user_rights.right_id', 'rights.id')
+            .where('rights.right_code', 1)
+            .where('user_rights.user_id', userId)
+            .first();
+
+        if (!userRights) {
+            return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
+        }
+
+        const subjects = await db('subjects')
+            .join('subject_teachers', 'subjects.id', 'subject_teachers.subject_id')
+            .where('subject_teachers.teacher_id', userId)
+            .select(
+                'subjects.id',
+                'subjects.subject',
+                'subjects.created_at',
+            );
+
+
+
+        if (!subjects) {
+            return sendJsonResponse(res, false, 404, 'Subiectul nu există!', []);
+        }
+        return sendJsonResponse(res, true, 200, 'Subiectele au fost găsite!', subjects);
+    } catch (error) {
+        return sendJsonResponse(res, false, 500, 'Eroare la preluarea subiectelor!', { details: error.message });
+    }
+});
 
 
 export default router; 

@@ -15,6 +15,8 @@ exports.up = function (knex) {
 
         table.string('photo', 255).nullable();
 
+        table.string('confirm_password', 255).notNullable();
+
 
         table.timestamps(true, true);
     });

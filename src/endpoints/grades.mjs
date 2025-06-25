@@ -5,7 +5,7 @@ import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs"
 
 const router = Router();
 
-// Adaugă o notă nouă (doar admin)
+// Adaugă o notă nouă 
 router.post('/addGrade/:studentId', userAuthMiddleware, async (req, res) => {
 
     try {
@@ -47,11 +47,11 @@ router.put('/updateGrade/:gradeId', userAuthMiddleware, async (req, res) => {
         const { gradeId } = req.params;
         const { grade } = req.body;
 
-        console.log('gradeId ', gradeId);
-        // console.log('student_id ', student_id);
-        console.log('grade ', grade);
-
         const userId = req.user.id;
+
+        if (!gradeId || !grade) {
+            return sendJsonResponse(res, false, 400, "Id-ul notei si nota sunt obligatorii!", []);
+        }
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -107,11 +107,13 @@ router.delete('/deleteGrade/:gradeId', userAuthMiddleware, async (req, res) => {
 });
 
 
-router.get('/getGradesByStudentIdByTeacherId', userAuthMiddleware, async (req, res) => {
+router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async (req, res) => {
 
     try {
 
         const userId = req.user.id;
+
+        const { classId } = req.params;
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -126,7 +128,9 @@ router.get('/getGradesByStudentIdByTeacherId', userAuthMiddleware, async (req, r
         const students = await db('users')
             .join('class_students', 'users.id', 'class_students.student_id')
             .join('classes', 'class_students.class_id', 'classes.id')
-            .where('classes.teacher_id', userId)
+            .join('class_teachers', 'classes.id', 'class_teachers.class_id')
+            .where('class_students.class_id', classId)
+            .where('class_teachers.teacher_id', userId)
             .select(
                 'users.id',
                 'users.name ',
@@ -135,6 +139,7 @@ router.get('/getGradesByStudentIdByTeacherId', userAuthMiddleware, async (req, r
                 'classes.name as class_name',
                 'users.created_at',
                 'users.photo',
+                'classes.id as class_id'
             )
             .orderBy('users.name', 'asc')
             .groupBy('users.id');

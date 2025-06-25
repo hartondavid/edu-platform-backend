@@ -6,14 +6,18 @@ import { userAuthMiddleware } from "../utils/middlewares/userAuthMiddleware.mjs"
 const router = Router();
 
 
-// Adaugă o clasă nouă (doar admin)
+// Adaugă o clasă nouă 
 router.post('/addClass', userAuthMiddleware, async (req, res) => {
 
     try {
 
-        const { name, subject_id, teacher_id } = req.body;
+        const { name } = req.body;
 
         const userId = req.user.id;
+
+        if (!name) {
+            return sendJsonResponse(res, false, 400, "Numele clasei este obligatoriu!", []);
+        }
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -25,7 +29,12 @@ router.post('/addClass', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await db('classes').insert({ name, subject_id, teacher_id, admin_id: userId });
+
+        const classExists = await db('classes').where({ name }).first();
+        if (classExists) {
+            return sendJsonResponse(res, false, 400, "Clasa există deja!", []);
+        }
+        const [id] = await db('classes').insert({ name, admin_id: userId });
         const foundClass = await db('classes').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Clasa a fost adăugată cu succes!", { foundClass });
     } catch (error) {
@@ -39,10 +48,12 @@ router.put('/updateClass/:classId', userAuthMiddleware, async (req, res) => {
     try {
 
         const { classId } = req.params;
-        const { name, subject_id, teacher_id } = req.body;
+        const { name, subject_id } = req.body;
         const userId = req.user.id;
 
-
+        if (!name || !subject_id) {
+            return sendJsonResponse(res, false, 400, "Nume si materie sunt obligatorii!", []);
+        }
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -60,8 +71,7 @@ router.put('/updateClass/:classId', userAuthMiddleware, async (req, res) => {
 
         await db('classes').where({ id: classId }).update({
             name: name || foundClass.name,
-            subject_id: subject_id || foundClass.subject_id,
-            teacher_id: teacher_id || foundClass.teacher_id
+            subject_id: subject_id || foundClass.subject_id
         });
         const updatedClass = await db('classes').where({ id: classId }).first();
         return sendJsonResponse(res, true, 200, "Clasa a fost actualizată cu succes!", { updatedClass });
@@ -120,8 +130,7 @@ router.get('/getClassById/:classId', userAuthMiddleware, async (req, res) => {
             .select(
                 'classes.id',
                 'classes.name',
-                'classes.subject_id',
-                'classes.teacher_id'
+
             )
             .first();
         if (!foundClass) {
