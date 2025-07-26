@@ -32,8 +32,7 @@ router.post('/addAssignment', userAuthMiddleware, upload.fields([{ name: 'file' 
             return sendJsonResponse(res, false, 400, "File is required", null);
         }
 
-        let filePathForImagePath = req.files['file'][0].path; // Get the full file path
-        filePathForImagePath = filePathForImagePath.replace(/^public[\\/]/, '');
+        const photoUrl = await smartUpload(req.files['file'][0], 'assignments');
 
         const userRights = await db('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
@@ -89,6 +88,12 @@ router.delete('/deleteAssignment/:assignmentId', userAuthMiddleware, async (req,
         const assignment = await db('assignments')
             .where({ id: assignmentId }).first();
         if (!assignment) return sendJsonResponse(res, false, 404, "Tema nu există!", []);
+
+        // Delete the image from Vercel Blob if it's a Blob URL
+        if (assignment.requirement) {
+
+            await deleteFromBlob(assignment.requirement);
+        }
         await db('assignments').where({ id: assignmentId }).del();
         return sendJsonResponse(res, true, 200, "Tema a fost ștearsă cu succes!", []);
     } catch (error) {
