@@ -11,5 +11,9 @@
             "source": "/(.*)",
             "destination": "/index.mjs"
         }
-    ]
+    ],
+    "buildCommand": "npx knex migrate:latest --knexfile knexfile.cjs",
+    "env": {
+        "NODE_ENV": "production"
+    }
 }

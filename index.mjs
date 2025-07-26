@@ -281,6 +281,41 @@ app.post('/run-seeds', async (req, res) => {
     }
 });
 
+// Manual migration endpoint (not protected) - for emergency use
+app.post('/run-migrations', async (req, res) => {
+    try {
+        console.log('🔄 Manually running migrations...');
+
+        // Run migrations
+        await databaseManager.runMigrations();
+        console.log('✅ Manual migrations completed successfully');
+
+        // Check tables after migrations
+        const knex = await databaseManager.getKnex();
+        const tables = await knex.raw('SELECT table_name FROM information_schema.tables WHERE table_schema = \'public\'');
+        console.log('📋 Tables after manual migrations:', tables.rows.map(row => row.table_name));
+
+        res.json({
+            success: true,
+            message: "Manual migrations completed successfully",
+            data: {
+                tablesCount: tables.rows.length,
+                tables: tables.rows.map(row => row.table_name)
+            }
+        });
+    } catch (error) {
+        console.error("Manual migration error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Manual migration failed",
+            data: {
+                error: error.message,
+                stack: error.stack
+            }
+        });
+    }
+});
+
 // Test token endpoint (not protected)
 app.post('/test-token', async (req, res) => {
     try {
@@ -474,6 +509,7 @@ app.use('*', (req, res) => {
             test: '/test',
             health: '/health',
             testDb: '/test-db',
+            runMigrations: '/run-migrations',
             runSeeds: '/run-seeds',
             testToken: '/test-token',
             login: '/login',
