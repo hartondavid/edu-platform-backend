@@ -16,7 +16,7 @@ router.post('/login', async (req, res) => {
             return sendJsonResponse(res, false, 400, "Email and password are required", []);
         }
         // Fetch user from database
-        const user = await db('users').where({ email }).first();
+        const user = await (await db.getKnex())('users').where({ email }).first();
 
         if (!user) {
             return sendJsonResponse(res, false, 401, "Invalid credentials", []);
@@ -32,7 +32,7 @@ router.post('/login', async (req, res) => {
         // Generate JWT token
         const token = getAuthToken(user.id, user.email, false, '1d', true)
 
-        await db('users')
+        await (await db.getKnex())('users')
             .where({ id: user.id })
             .update({ last_login: parseInt(Date.now() / 1000) });
 
@@ -59,7 +59,7 @@ router.get('/getTeachers', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -69,7 +69,7 @@ router.get('/getTeachers', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const teachers = await db('users').
+        const teachers = await (await db.getKnex())('users').
             join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
@@ -96,7 +96,7 @@ router.get('/searchStudent', userAuthMiddleware, async (req, res) => {
 
     try {
         // Query the database to search for employees where name contains the searchField
-        const students = await db('users')
+        const students = await (await db.getKnex())('users')
             .join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
@@ -184,16 +184,16 @@ router.post('/register', async (req, res) => {
 
         let newUserId;
         // let rightCode;
-        const userEmail = await db('users').where('email', email).first();
+        const userEmail = await (await db.getKnex())('users').where('email', email).first();
         if (!userEmail) {
             // Insert the new user into the database
-            [newUserId] = await db('users')
+            [newUserId] = await (await db.getKnex())('users')
                 .insert(userData)
                 .returning('id');
 
-            const rightCode = await db('rights').where('right_code', right_code).first();
+            const rightCode = await (await db.getKnex())('rights').where('right_code', right_code).first();
 
-            await db('user_rights')
+            await (await db.getKnex())('user_rights')
 
                 .where({ user_id: newUserId })
                 .insert({
@@ -219,7 +219,7 @@ router.get('/getUsers', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -229,7 +229,7 @@ router.get('/getUsers', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const users = await db('users').
+        const users = await (await db.getKnex())('users').
             join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .whereNot('users.id', userId)
@@ -254,7 +254,7 @@ router.delete('/deleteUser/:userId', userAuthMiddleware, async (req, res) => {
 
         const loggedUserId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', loggedUserId)
@@ -264,9 +264,9 @@ router.delete('/deleteUser/:userId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const user = await db('users').where({ id: userId }).first();
+        const user = await (await db.getKnex())('users').where({ id: userId }).first();
         if (!user) return sendJsonResponse(res, false, 404, "Utilizatorul nu există!", []);
-        await db('users').where({ id: userId }).del();
+        await (await db.getKnex())('users').where({ id: userId }).del();
         return sendJsonResponse(res, true, 200, "Utilizatorul a fost șters cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea ingredientului!", { details: error.message });
@@ -282,7 +282,7 @@ router.get('/searchTeacher', userAuthMiddleware, async (req, res) => {
 
     try {
         // Query the database to search for employees where name contains the searchField
-        const teachers = await db('users')
+        const teachers = await (await db.getKnex())('users')
             .join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
@@ -316,7 +316,7 @@ router.get('/searchTeacherForSubject', userAuthMiddleware, async (req, res) => {
 
     try {
         // Query the database to search for employees where name contains the searchField
-        const teachers = await db('users')
+        const teachers = await (await db.getKnex())('users')
             .join('user_rights', 'users.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
@@ -342,8 +342,3 @@ router.get('/searchTeacherForSubject', userAuthMiddleware, async (req, res) => {
 })
 
 export default router;
-
-
-
-
-

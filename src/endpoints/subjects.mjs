@@ -17,7 +17,7 @@ router.post('/addSubject', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Subiectul este obligatoriu!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -27,16 +27,16 @@ router.post('/addSubject', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subjectExists = await db('subjects').where({ subject }).first();
+        const subjectExists = await (await db.getKnex())('subjects').where({ subject }).first();
         if (subjectExists) {
             return sendJsonResponse(res, false, 400, "Subiectul există deja!", []);
         }
 
-        const [id] = await db('subjects').insert({
+        const [id] = await (await db.getKnex())('subjects').insert({
             subject, admin_id: userId,
         });
 
-        const foundSubject = await db('subjects').where({ id }).first();
+        const foundSubject = await (await db.getKnex())('subjects').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Subiectul a fost adăugat cu succes!", { subject: foundSubject });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea subiectului!", { details: error.message });
@@ -57,7 +57,7 @@ router.put('/updateSubject/:subjectId', userAuthMiddleware, async (req, res) => 
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -67,13 +67,13 @@ router.put('/updateSubject/:subjectId', userAuthMiddleware, async (req, res) => 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const foundSubject = await db('subjects').where({ id: subjectId }).first();
+        const foundSubject = await (await db.getKnex())('subjects').where({ id: subjectId }).first();
         if (!foundSubject) return sendJsonResponse(res, false, 404, "Subiectul nu există!", []);
 
-        await db('subjects').where({ id: subjectId }).update({
+        await (await db.getKnex())('subjects').where({ id: subjectId }).update({
             subject: subject || foundSubject.subject
         });
-        const updated = await db('subjects').where({ id: subjectId }).first();
+        const updated = await (await db.getKnex())('subjects').where({ id: subjectId }).first();
         return sendJsonResponse(res, true, 200, "Subiectul a fost actualizat cu succes!", { subject: updated });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la actualizarea subiectului!", { details: error.message });
@@ -89,7 +89,7 @@ router.delete('/deleteSubject/:subjectId', userAuthMiddleware, async (req, res) 
         const { subjectId } = req.params;
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -99,9 +99,9 @@ router.delete('/deleteSubject/:subjectId', userAuthMiddleware, async (req, res) 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subject = await db('subjects').where({ id: subjectId }).first();
+        const subject = await (await db.getKnex())('subjects').where({ id: subjectId }).first();
         if (!subject) return sendJsonResponse(res, false, 404, "Subiectul nu există!", []);
-        await db('subjects').where({ id: subjectId }).del();
+        await (await db.getKnex())('subjects').where({ id: subjectId }).del();
         return sendJsonResponse(res, true, 200, "Subiectul a fost șters cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea subiectului!", { details: error.message });
@@ -117,7 +117,7 @@ router.get('/getSubject/:subjectId', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -127,7 +127,7 @@ router.get('/getSubject/:subjectId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subject = await db('subjects')
+        const subject = await (await db.getKnex())('subjects')
             .where('id', subjectId)
             .select(
                 'subjects.id',
@@ -151,7 +151,7 @@ router.get('/getSubjects', userAuthMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .orWhere('rights.right_code', 1)
@@ -162,7 +162,7 @@ router.get('/getSubjects', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subjects = await db('subjects').select(
+        const subjects = await (await db.getKnex())('subjects').select(
             'subjects.id',
             'subjects.subject',
             'subjects.admin_id',
@@ -171,7 +171,7 @@ router.get('/getSubjects', userAuthMiddleware, async (req, res) => {
 
         const results = await Promise.all(subjects.map(async subject => {
             // Get order items for this order
-            const teachers = await db('subject_teachers')
+            const teachers = await (await db.getKnex())('subject_teachers')
                 .join('users', 'subject_teachers.teacher_id', 'users.id')
                 .where('subject_teachers.subject_id', subject.id)
                 .select(
@@ -204,7 +204,7 @@ router.get('/getSubjectsByStudentId', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -214,7 +214,7 @@ router.get('/getSubjectsByStudentId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subjects = await db('subjects')
+        const subjects = await (await db.getKnex())('subjects')
             .join('classes', 'subjects.class_id', 'classes.id')
             .join('class_students', 'classes.id', 'class_students.class_id')
             .join('teachers', 'classes.teacher_id', 'teachers.id')
@@ -245,7 +245,7 @@ router.get('/searchSubject', userAuthMiddleware, async (req, res) => {
 
     try {
         // Query the database to search for employees where name contains the searchField
-        const subjects = await db('subjects')
+        const subjects = await (await db.getKnex())('subjects')
             .join('user_rights', 'subjects.id', 'user_rights.user_id')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
@@ -279,7 +279,7 @@ router.post('/addSubjectTeacher/:subjectId', userAuthMiddleware, async (req, res
             return sendJsonResponse(res, false, 400, "Subiectul si profesorul sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -289,11 +289,11 @@ router.post('/addSubjectTeacher/:subjectId', userAuthMiddleware, async (req, res
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await db('subject_teachers').insert({
+        const [id] = await (await db.getKnex())('subject_teachers').insert({
             subject_id: subjectId, teacher_id: teacher_id,
         });
 
-        const subjectTeacher = await db('subject_teachers').where({ id }).first();
+        const subjectTeacher = await (await db.getKnex())('subject_teachers').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Profesorul a fost adăugat cu succes!", { subjectTeacher });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea profesorului!", { details: error.message });
@@ -308,7 +308,7 @@ router.delete('/deleteSubjectTeacher/:subjectTeacherId', userAuthMiddleware, asy
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -320,9 +320,9 @@ router.delete('/deleteSubjectTeacher/:subjectTeacherId', userAuthMiddleware, asy
 
         console.log('subjectTeacherId', subjectTeacherId);
 
-        const subjectTeacher = await db('subject_teachers').where({ id: subjectTeacherId }).first();
+        const subjectTeacher = await (await db.getKnex())('subject_teachers').where({ id: subjectTeacherId }).first();
         if (!subjectTeacher) return sendJsonResponse(res, false, 404, "Profesorul nu există!", []);
-        await db('subject_teachers').where({ id: subjectTeacherId }).del();
+        await (await db.getKnex())('subject_teachers').where({ id: subjectTeacherId }).del();
         return sendJsonResponse(res, true, 200, "Profesorul a fost șters cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea profesorului!", { details: error.message });
@@ -338,7 +338,7 @@ router.get('/getSubjectTeachersBySubjectId/:subjectId', userAuthMiddleware, asyn
 
         const { subjectId } = req.params;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -349,7 +349,7 @@ router.get('/getSubjectTeachersBySubjectId/:subjectId', userAuthMiddleware, asyn
         }
         console.log('subjectId', subjectId);
 
-        const subjectTeachers = await db('subject_teachers')
+        const subjectTeachers = await (await db.getKnex())('subject_teachers')
             .join('users', 'subject_teachers.teacher_id', 'users.id')
             .where('subject_teachers.subject_id', subjectId)
             .select(
@@ -378,7 +378,7 @@ router.get('/getSubjectsByTeacherId', userAuthMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -388,7 +388,7 @@ router.get('/getSubjectsByTeacherId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subjects = await db('subjects')
+        const subjects = await (await db.getKnex())('subjects')
             .join('subject_teachers', 'subjects.id', 'subject_teachers.subject_id')
             .where('subject_teachers.teacher_id', userId)
             .select(
@@ -396,7 +396,6 @@ router.get('/getSubjectsByTeacherId', userAuthMiddleware, async (req, res) => {
                 'subjects.subject',
                 'subjects.created_at',
             );
-
 
 
         if (!subjects) {
