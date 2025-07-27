@@ -10,4 +10,7 @@ exports.seed = async function (knex) {
     { id: 2, name: 'student', right_code: 2 },
     { id: 3, name: 'admin', right_code: 3 }
   ]);
+
+  // Reset the sequence to start from the next available ID
+  await knex.raw('SELECT setval(\'rights_id_seq\', (SELECT MAX(id) FROM rights))');
 };

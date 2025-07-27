@@ -19,4 +19,7 @@ exports.seed = async function (knex) {
       confirm_password: 'f6fdffe48c908deb0f4c3bd36c032e72', phone: '0745183457'
     },
   ]);
+
+  // Reset the sequence to start from the next available ID
+  await knex.raw('SELECT setval(\'users_id_seq\', (SELECT MAX(id) FROM users))');
 };
