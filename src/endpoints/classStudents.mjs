@@ -28,9 +28,10 @@ router.post('/addClassStudent/:classId', userAuthMiddleware, async (req, res) =>
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await (await db.getKnex())('class_students').insert({
+        const result = await (await db.getKnex())('class_students').insert({
             student_id, class_id: classId, admin_id: userId,
-        });
+        }).returning('id');
+        const id = Array.isArray(result) ? result[0].id : result.id;
 
         const classStudent = await (await db.getKnex())('class_students').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Elevul a fost adăugat cu succes!", { classStudent });
