@@ -13,12 +13,6 @@ module.exports = {
             password: process.env.DB_PASSWORD,
             database: process.env.DB_NAME
         },
-        migrations: {
-            directory: './migrations'
-        },
-        seeds: {
-            directory: './seeds'
-        },
         pool: {
             min: 2,
             max: 10
