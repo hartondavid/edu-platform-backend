@@ -18,5 +18,8 @@
             "source": "/(.*)",
             "destination": "/index.mjs"
         }
-    ]
+    ],
+    "env": {
+        "SKIP_MIGRATIONS": "false"
+    }
 }

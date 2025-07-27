@@ -145,10 +145,15 @@ const runSeeds = async (options = {}) => {
 // Import API routes (with error handling)
 let apiRoutes = null;
 try {
-    // Run migrations first
-    const migrationsSuccess = await runMigrations();
-    if (!migrationsSuccess) {
-        console.log('⚠️ Continuing without database migrations');
+    // Run migrations and seeds only once (check if SKIP_MIGRATIONS is not set)
+    if (!process.env.SKIP_MIGRATIONS) {
+        console.log('🔄 Running migrations and seeds once...');
+        const migrationsSuccess = await runMigrations();
+        if (!migrationsSuccess) {
+            console.log('⚠️ Continuing without database migrations');
+        }
+    } else {
+        console.log('⏭️ Skipping migrations (SKIP_MIGRATIONS is set)');
     }
 
     const { default: apiRoute } = await import('./src/routes/apiRoute.mjs');
