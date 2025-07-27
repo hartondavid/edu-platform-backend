@@ -187,15 +187,15 @@ router.post('/register', async (req, res) => {
         const userEmail = await (await db.getKnex())('users').where('email', email).first();
         if (!userEmail) {
             // Insert the new user into the database
-            [newUserId] = await (await db.getKnex())('users')
+            const result = await (await db.getKnex())('users')
                 .insert(userData)
                 .returning('id');
+
+            newUserId = result[0].id;
 
             const rightCode = await (await db.getKnex())('rights').where('right_code', right_code).first();
 
             await (await db.getKnex())('user_rights')
-
-                .where({ user_id: newUserId })
                 .insert({
                     user_id: newUserId,
                     right_id: rightCode.id
