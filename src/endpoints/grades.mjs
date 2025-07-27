@@ -134,7 +134,7 @@ router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async 
             .where('class_teachers.teacher_id', userId)
             .select(
                 'users.id',
-                'users.name ',
+                'users.name',
                 'users.email',
                 'users.phone',
                 'classes.name as class_name',
@@ -143,7 +143,7 @@ router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async 
                 'classes.id as class_id'
             )
             .orderBy('users.name', 'asc')
-            .groupBy('users.id');
+            .groupBy('users.id', 'users.name', 'users.email', 'users.phone', 'classes.name', 'users.created_at', 'users.photo', 'classes.id');
 
 
 
