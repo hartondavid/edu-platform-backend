@@ -34,7 +34,11 @@ router.post('/addClass', userAuthMiddleware, async (req, res) => {
         if (classExists) {
             return sendJsonResponse(res, false, 400, "Clasa există deja!", []);
         }
-        const [id] = await (await db.getKnex())('classes').insert({ name, admin_id: userId });
+        const result = await (await db.getKnex())('classes').insert({ name, admin_id: userId }).returning('id');
+
+        // Handle different database return formats
+        const id = Array.isArray(result) ? result[0].id : result.id;
+
         const foundClass = await (await db.getKnex())('classes').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Clasa a fost adăugată cu succes!", { foundClass });
     } catch (error) {

@@ -32,9 +32,10 @@ router.post('/addSubject', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Subiectul există deja!", []);
         }
 
-        const [id] = await (await db.getKnex())('subjects').insert({
+        const result = await (await db.getKnex())('subjects').insert({
             subject, admin_id: userId,
-        });
+        }).returning('id');
+        const id = Array.isArray(result) ? result[0].id : result.id;
 
         const foundSubject = await (await db.getKnex())('subjects').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Subiectul a fost adăugat cu succes!", { subject: foundSubject });
