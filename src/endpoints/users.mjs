@@ -105,7 +105,7 @@ router.get('/searchStudent', userAuthMiddleware, async (req, res) => {
                     .orWhere('users.email', 'like', `%${searchField}%`)
                     .orWhere('users.phone', 'like', `%${searchField}%`)
             })
-            .whereNotIn('users.id', db('class_students').select('student_id'))
+            .whereNotIn('users.id', (await db.getKnex())('class_students').select('student_id'))
             .select('users.*');
 
 
