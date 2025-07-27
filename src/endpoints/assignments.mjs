@@ -19,7 +19,6 @@ router.post('/addAssignment', userAuthMiddleware, upload.fields([{ name: 'file' 
 
     try {
 
-
         const userId = req.user?.id;
         const { class_id, subject_id, assignment } = req.body;
 
@@ -32,9 +31,9 @@ router.post('/addAssignment', userAuthMiddleware, upload.fields([{ name: 'file' 
             return sendJsonResponse(res, false, 400, "File is required", null);
         }
 
-        const photoUrl = await smartUpload(req.files['file'][0], 'assignments');
+        const fileUrl = await smartUpload(req.files['file'][0], 'assignments');
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -44,14 +43,14 @@ router.post('/addAssignment', userAuthMiddleware, upload.fields([{ name: 'file' 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const students = await db('users')
+        const students = await (await db.getKnex())('users')
             .join('class_students', 'users.id', 'class_students.student_id')
             .where('class_students.class_id', class_id)
             .select('users.id');
 
         for (const student of students) {
-            await db('assignments').insert({
-                requirement_file_path: filePathForImagePath, student_id: student.id,
+            await (await db.getKnex())('assignments').insert({
+                requirement_file_path: fileUrl, student_id: student.id,
                 subject_id: subject_id, teacher_id: userId, assignment
             });
         }
@@ -75,7 +74,7 @@ router.delete('/deleteAssignment/:assignmentId', userAuthMiddleware, async (req,
             return sendJsonResponse(res, false, 400, "Tema nu există!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -85,16 +84,16 @@ router.delete('/deleteAssignment/:assignmentId', userAuthMiddleware, async (req,
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const assignment = await db('assignments')
+        const assignment = await (await db.getKnex())('assignments')
             .where({ id: assignmentId }).first();
         if (!assignment) return sendJsonResponse(res, false, 404, "Tema nu există!", []);
 
         // Delete the image from Vercel Blob if it's a Blob URL
-        if (assignment.requirement) {
+        if (assignment.requirement_file_path) {
 
-            await deleteFromBlob(assignment.requirement);
+            await deleteFromBlob(assignment.requirement_file_path);
         }
-        await db('assignments').where({ id: assignmentId }).del();
+        await (await db.getKnex())('assignments').where({ id: assignmentId }).del();
         return sendJsonResponse(res, true, 200, "Tema a fost ștearsă cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea temei!", { details: error.message });
@@ -108,7 +107,7 @@ router.get('/getAssignmentsByStudentIdByClassId/:classId', userAuthMiddleware, a
 
         const { classId } = req.params;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -118,7 +117,7 @@ router.get('/getAssignmentsByStudentIdByClassId/:classId', userAuthMiddleware, a
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const students = await db('users')
+        const students = await (await db.getKnex())('users')
             .join('class_students', 'users.id', 'class_students.student_id')
             .join('classes', 'class_students.class_id', 'classes.id')
             .join('class_teachers', 'classes.id', 'class_teachers.class_id')
@@ -140,7 +139,7 @@ router.get('/getAssignmentsByStudentIdByClassId/:classId', userAuthMiddleware, a
 
         const results = await Promise.all(students.map(async student => {
             // Get order items for this order
-            const assignments = await db('assignments')
+            const assignments = await (await db.getKnex())('assignments')
                 .join('subjects', 'assignments.subject_id', 'subjects.id')
                 .where('assignments.student_id', student.id)
                 .where('assignments.teacher_id', userId)
@@ -174,7 +173,7 @@ router.get('/getAssignmentsBySubjectIdByStudentId', userAuthMiddleware, async (r
 
         const userId = req.user?.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -184,7 +183,7 @@ router.get('/getAssignmentsBySubjectIdByStudentId', userAuthMiddleware, async (r
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subjects = await db('subjects')
+        const subjects = await (await db.getKnex())('subjects')
             .join('assignments', 'subjects.id', 'assignments.subject_id')
             .where('assignments.student_id', userId)
             .select(
@@ -199,7 +198,7 @@ router.get('/getAssignmentsBySubjectIdByStudentId', userAuthMiddleware, async (r
 
         const results = await Promise.all(subjects.map(async subject => {
             // Get order items for this order
-            const assignments = await db('assignments')
+            const assignments = await (await db.getKnex())('assignments')
                 .join('subjects', 'assignments.subject_id', 'subjects.id')
                 .where('assignments.subject_id', subject.id)
                 .where('assignments.student_id', userId)
@@ -232,7 +231,6 @@ router.post('/addAssignmentSolution', userAuthMiddleware, upload.fields([{ name:
 
     try {
 
-
         const userId = req.user?.id;
         const { assignment_id } = req.body;
 
@@ -242,15 +240,13 @@ router.post('/addAssignmentSolution', userAuthMiddleware, upload.fields([{ name:
             return sendJsonResponse(res, false, 400, "Tema și soluția nu există!", []);
         }
 
-
         if (!req.files || !req.files['file']) {
             return sendJsonResponse(res, false, 400, "File is required", null);
         }
 
-        let filePathForImagePath = req.files['file'][0].path; // Get the full file path
-        filePathForImagePath = filePathForImagePath.replace(/^public[\\/]/, '');
+        const fileUrl = await smartUpload(req.files['file'][0], 'assignments');
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -261,8 +257,8 @@ router.post('/addAssignmentSolution', userAuthMiddleware, upload.fields([{ name:
         }
 
 
-        await db('assignments').where({ id: assignment_id }).update({
-            solution_file_path: filePathForImagePath,
+        await (await db.getKnex())('assignments').where({ id: assignment_id }).update({
+            solution_file_path: fileUrl,
         });
 
 
@@ -283,7 +279,7 @@ router.delete('/deleteAssignmentSolution/:assignmentId', userAuthMiddleware, asy
             return sendJsonResponse(res, false, 400, "Tema nu există!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -293,10 +289,16 @@ router.delete('/deleteAssignmentSolution/:assignmentId', userAuthMiddleware, asy
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const assignment = await db('assignments')
+        const assignment = await (await db.getKnex())('assignments')
             .where({ id: assignmentId }).first();
         if (!assignment) return sendJsonResponse(res, false, 404, "Tema nu există!", []);
-        await db('assignments').where({ id: assignmentId }).update({
+
+        // Delete the image from Vercel Blob if it's a Blob URL
+        if (assignment.solution_file_path) {
+
+            await deleteFromBlob(assignment.solution_file_path);
+        }
+        await (await db.getKnex())('assignments').where({ id: assignmentId }).update({
             solution_file_path: null
         });
         return sendJsonResponse(res, true, 200, "Soluția temei a fost ștearsă cu succes!", []);
@@ -304,8 +306,5 @@ router.delete('/deleteAssignmentSolution/:assignmentId', userAuthMiddleware, asy
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea soluției temei!", { details: error.message });
     }
 });
-
-
-
 
 export default router;

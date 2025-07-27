@@ -18,7 +18,7 @@ router.post('/addGrade/:studentId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Studentul, nota si materia sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -28,11 +28,11 @@ router.post('/addGrade/:studentId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await db('grades').insert({
+        const [id] = await (await db.getKnex())('grades').insert({
             student_id: studentId, subject_id: subject_id, grade: grade, teacher_id: userId,
         });
 
-        const foundGrade = await db('grades').where({ id }).first();
+        const foundGrade = await (await db.getKnex())('grades').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Elevul a fost adăugat cu succes!", { grade: foundGrade });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea notei!", { details: error.message });
@@ -53,7 +53,7 @@ router.put('/updateGrade/:gradeId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Id-ul notei si nota sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -63,13 +63,13 @@ router.put('/updateGrade/:gradeId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const foundGrade = await db('grades').where({ id: gradeId }).first();
+        const foundGrade = await (await db.getKnex())('grades').where({ id: gradeId }).first();
         if (!foundGrade) return sendJsonResponse(res, false, 404, "Elevul nu există!", []);
 
-        await db('grades').where({ id: gradeId }).update({
+        await (await db.getKnex())('grades').where({ id: gradeId }).update({
             grade: grade || foundGrade.grade,
         });
-        const updated = await db('grades').where({ id: gradeId }).first();
+        const updated = await (await db.getKnex())('grades').where({ id: gradeId }).first();
         return sendJsonResponse(res, true, 200, "Elevul a fost actualizat cu succes!", { grade: updated });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la actualizarea elevului!", { details: error.message });
@@ -87,7 +87,7 @@ router.delete('/deleteGrade/:gradeId', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -97,9 +97,9 @@ router.delete('/deleteGrade/:gradeId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const foundGrade = await db('grades').where({ id: gradeId }).first();
+        const foundGrade = await (await db.getKnex())('grades').where({ id: gradeId }).first();
         if (!foundGrade) return sendJsonResponse(res, false, 404, "Elevul nu există!", []);
-        await db('grades').where({ id: gradeId }).del();
+        await (await db.getKnex())('grades').where({ id: gradeId }).del();
         return sendJsonResponse(res, true, 200, "Elevul a fost șters cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea notei!", { details: error.message });
@@ -115,7 +115,7 @@ router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async 
 
         const { classId } = req.params;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -125,7 +125,7 @@ router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const students = await db('users')
+        const students = await (await db.getKnex())('users')
             .join('class_students', 'users.id', 'class_students.student_id')
             .join('classes', 'class_students.class_id', 'classes.id')
             .join('class_teachers', 'classes.id', 'class_teachers.class_id')
@@ -148,7 +148,7 @@ router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async 
 
         const results = await Promise.all(students.map(async student => {
             // Get order items for this order
-            const grades = await db('grades')
+            const grades = await (await db.getKnex())('grades')
                 .join('subjects', 'grades.subject_id', 'subjects.id')
                 .where('grades.student_id', student.id)
                 .select(
@@ -163,8 +163,6 @@ router.get('/getGradesByStudentIdByClassId/:classId', userAuthMiddleware, async 
                 grades: grades
             };
         }));
-
-
 
         if (!results) {
             return sendJsonResponse(res, false, 404, 'Elevii nu există!', []);
@@ -182,7 +180,7 @@ router.get('/getGradesBySubjectIdByStudentId', userAuthMiddleware, async (req, r
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 2)
             .where('user_rights.user_id', userId)
@@ -192,7 +190,7 @@ router.get('/getGradesBySubjectIdByStudentId', userAuthMiddleware, async (req, r
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const subjects = await db('grades')
+        const subjects = await (await db.getKnex())('grades')
             .join('users', 'grades.student_id', 'users.id')
             .join('subjects', 'grades.subject_id', 'subjects.id')
             .where('grades.student_id', userId)
@@ -209,7 +207,7 @@ router.get('/getGradesBySubjectIdByStudentId', userAuthMiddleware, async (req, r
 
         const results = await Promise.all(subjects.map(async subject => {
             // Get order items for this order
-            const grades = await db('grades')
+            const grades = await (await db.getKnex())('grades')
                 .join('users', 'grades.student_id', 'users.id')
                 // .join('class_students', 'users.id', 'class_students.student_id')
                 .join('subjects', 'grades.subject_id', 'subjects.id')
@@ -234,7 +232,5 @@ router.get('/getGradesBySubjectIdByStudentId', userAuthMiddleware, async (req, r
         return sendJsonResponse(res, false, 500, 'Eroare la preluarea notelor!', { details: error.message });
     }
 });
-
-
 
 export default router; 

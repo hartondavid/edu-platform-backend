@@ -21,7 +21,7 @@ router.post('/addClassTeacher/:classId', userAuthMiddleware, async (req, res) =>
             return sendJsonResponse(res, false, 400, "Clasa si profesorul sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -31,11 +31,11 @@ router.post('/addClassTeacher/:classId', userAuthMiddleware, async (req, res) =>
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const [id] = await db('class_teachers').insert({
+        const [id] = await (await db.getKnex())('class_teachers').insert({
             teacher_id, class_id: classId, admin_id: userId,
         });
 
-        const classTeacher = await db('class_teachers').where({ id }).first();
+        const classTeacher = await (await db.getKnex())('class_teachers').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Profesorul a fost adăugat cu succes!", { classTeacher });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea profesorului!", { details: error.message });
@@ -52,7 +52,7 @@ router.delete('/deleteClassTeacher/:teacherId', userAuthMiddleware, async (req, 
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -64,9 +64,9 @@ router.delete('/deleteClassTeacher/:teacherId', userAuthMiddleware, async (req, 
 
         console.log('teacherId', teacherId);
 
-        const classTeacher = await db('class_teachers').where({ teacher_id: teacherId }).first();
+        const classTeacher = await (await db.getKnex())('class_teachers').where({ teacher_id: teacherId }).first();
         if (!classTeacher) return sendJsonResponse(res, false, 404, "Profesorul nu există!", []);
-        await db('class_teachers').where({ teacher_id: teacherId }).del();
+        await (await db.getKnex())('class_teachers').where({ teacher_id: teacherId }).del();
         return sendJsonResponse(res, true, 200, "Profesorul a fost șters cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea profesorului!", { details: error.message });
@@ -80,7 +80,7 @@ router.get('/getClassTeachers', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -90,7 +90,7 @@ router.get('/getClassTeachers', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const classTeachers = await db('classes')
+        const classTeachers = await (await db.getKnex())('classes')
             .select(
                 'classes.id',
                 'classes.name as class_name',
@@ -105,7 +105,7 @@ router.get('/getClassTeachers', userAuthMiddleware, async (req, res) => {
 
         const results = await Promise.all(classTeachers.map(async classTeacher => {
             // Get order items for this order
-            const teachers = await db('users')
+            const teachers = await (await db.getKnex())('users')
                 .join('class_teachers', 'users.id', 'class_teachers.teacher_id')
                 .join('classes', 'class_teachers.class_id', 'classes.id')
                 .where('class_teachers.class_id', classTeacher.id)
@@ -140,7 +140,7 @@ router.get('/getClassTeachersByTeacherId', userAuthMiddleware, async (req, res) 
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 1)
             .where('user_rights.user_id', userId)
@@ -150,7 +150,7 @@ router.get('/getClassTeachersByTeacherId', userAuthMiddleware, async (req, res) 
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const classTeachers = await db('classes')
+        const classTeachers = await (await db.getKnex())('classes')
             .join('users', 'classes.teacher_id', 'users.id')
             .join('subjects', 'classes.subject_id', 'subjects.id')
             .where('classes.teacher_id', userId)
@@ -169,7 +169,7 @@ router.get('/getClassTeachersByTeacherId', userAuthMiddleware, async (req, res) 
 
         const results = await Promise.all(classTeachers.map(async classTeacher => {
             // Get order items for this order
-            const teachers = await db('users')
+            const teachers = await (await db.getKnex())('users')
                 .join('class_teachers', 'users.id', 'class_teachers.teacher_id')
                 .join('classes', 'class_teachers.class_id', 'classes.id')
                 .where('class_teachers.class_id', classTeacher.id)
@@ -208,7 +208,7 @@ router.get('/getClassTeachersByClassId/:classId', userAuthMiddleware, async (req
 
         const { classId } = req.params;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .orWhere('rights.right_code', 1)
@@ -219,7 +219,7 @@ router.get('/getClassTeachersByClassId/:classId', userAuthMiddleware, async (req
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const classTeachers = await db('class_teachers')
+        const classTeachers = await (await db.getKnex())('class_teachers')
             .join('users', 'class_teachers.teacher_id', 'users.id')
             .where('class_teachers.class_id', classId)
             .select(

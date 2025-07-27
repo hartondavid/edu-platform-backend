@@ -19,7 +19,7 @@ router.post('/addClass', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Numele clasei este obligatoriu!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -30,12 +30,12 @@ router.post('/addClass', userAuthMiddleware, async (req, res) => {
         }
 
 
-        const classExists = await db('classes').where({ name }).first();
+        const classExists = await (await db.getKnex())('classes').where({ name }).first();
         if (classExists) {
             return sendJsonResponse(res, false, 400, "Clasa există deja!", []);
         }
-        const [id] = await db('classes').insert({ name, admin_id: userId });
-        const foundClass = await db('classes').where({ id }).first();
+        const [id] = await (await db.getKnex())('classes').insert({ name, admin_id: userId });
+        const foundClass = await (await db.getKnex())('classes').where({ id }).first();
         return sendJsonResponse(res, true, 201, "Clasa a fost adăugată cu succes!", { foundClass });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la adăugarea clasei!", { details: error.message });
@@ -55,7 +55,7 @@ router.put('/updateClass/:classId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 400, "Nume si materie sunt obligatorii!", []);
         }
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -65,15 +65,15 @@ router.put('/updateClass/:classId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const foundClass = await db('classes').where({ id: classId }).first();
+        const foundClass = await (await db.getKnex())('classes').where({ id: classId }).first();
 
         if (!foundClass) return sendJsonResponse(res, false, 404, "Clasa nu există!", []);
 
-        await db('classes').where({ id: classId }).update({
+        await (await db.getKnex())('classes').where({ id: classId }).update({
             name: name || foundClass.name,
             subject_id: subject_id || foundClass.subject_id
         });
-        const updatedClass = await db('classes').where({ id: classId }).first();
+        const updatedClass = await (await db.getKnex())('classes').where({ id: classId }).first();
         return sendJsonResponse(res, true, 200, "Clasa a fost actualizată cu succes!", { updatedClass });
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la actualizarea clasei!", { details: error.message });
@@ -88,7 +88,7 @@ router.delete('/deleteClass/:classId', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -98,9 +98,9 @@ router.delete('/deleteClass/:classId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const foundClass = await db('classes').where({ id: classId }).first();
+        const foundClass = await (await db.getKnex())('classes').where({ id: classId }).first();
         if (!foundClass) return sendJsonResponse(res, false, 404, "Clasa nu există!", []);
-        await db('classes').where({ id: classId }).del();
+        await (await db.getKnex())('classes').where({ id: classId }).del();
         return sendJsonResponse(res, true, 200, "Clasa a fost ștersă cu succes!", []);
     } catch (error) {
         return sendJsonResponse(res, false, 500, "Eroare la ștergerea clasei!", { details: error.message });
@@ -115,7 +115,7 @@ router.get('/getClassById/:classId', userAuthMiddleware, async (req, res) => {
         const { classId } = req.params;
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -125,7 +125,7 @@ router.get('/getClassById/:classId', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const foundClass = await db('classes')
+        const foundClass = await (await db.getKnex())('classes')
             .where('classes.id', classId)
             .select(
                 'classes.id',
@@ -149,7 +149,7 @@ router.get('/getAllClasses', userAuthMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        const userRights = await db('user_rights')
+        const userRights = await (await db.getKnex())('user_rights')
             .join('rights', 'user_rights.right_id', 'rights.id')
             .where('rights.right_code', 3)
             .where('user_rights.user_id', userId)
@@ -159,7 +159,7 @@ router.get('/getAllClasses', userAuthMiddleware, async (req, res) => {
             return sendJsonResponse(res, false, 403, "Nu sunteti autorizat!", []);
         }
 
-        const classes = await db('classes').select('*')
+        const classes = await (await db.getKnex())('classes').select('*')
 
         console.log('classes', classes);
 
